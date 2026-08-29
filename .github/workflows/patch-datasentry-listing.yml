@@ -1,0 +1,52 @@
+name: Patch DataSentry listing
+
+on:
+  push:
+    branches:
+      - add-datasentry-mcp
+
+permissions:
+  contents: write
+
+jobs:
+  patch-readme:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: add-datasentry-mcp
+      - name: Insert DataSentry into Data Science Tools
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('README.md')
+          text = path.read_text(encoding='utf-8')
+          entry = '- [Jackxiaozhiren/datasentry](https://github.com/Jackxiaozhiren/datasentry) 🐍 🏠 - Find data-quality problems, inspect evidence and drift, and run controlled repair workflows locally.'
+          anchor = 'jjsantos01/jupyter-notebook-mcp'
+
+          if 'Jackxiaozhiren/datasentry' in text:
+              raise SystemExit('DataSentry is already listed; refusing to duplicate it')
+
+          lines = text.splitlines()
+          for i, line in enumerate(lines):
+              if anchor in line:
+                  lines.insert(i, entry)
+                  break
+          else:
+              raise SystemExit(f'Anchor {anchor!r} not found; README layout changed')
+
+          path.write_text('\n'.join(lines) + ('\n' if text.endswith('\n') else ''), encoding='utf-8')
+          PY
+      - name: Remove temporary workflow and commit only the listing
+        shell: bash
+        run: |
+          rm .github/workflows/patch-datasentry-listing.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'docs: add DataSentry MCP server'
+          git push origin HEAD:add-datasentry-mcp
